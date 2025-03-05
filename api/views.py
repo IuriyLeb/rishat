@@ -1,17 +1,12 @@
 import stripe
 from django.conf import settings
-from rest_framework import viewsets
-from rest_framework.response import Response
-from rest_framework.decorators import action
-from .models import Item, Order, Discount, Tax
-from rest_framework.renderers import TemplateHTMLRenderer
-from .serializers import ItemSerializer, OrderSerializer
-from rest_framework.views import APIView
-from rest_framework.response import Response
 from django.http import JsonResponse
-import stripe
-from django.conf import settings
-from .models import Item
+from rest_framework import viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
+
+from .models import Item, Order
+from .serializers import ItemSerializer, OrderSerializer
 
 
 class ItemViewSet(viewsets.ModelViewSet):
@@ -20,7 +15,10 @@ class ItemViewSet(viewsets.ModelViewSet):
 
     def retrieve(self, request, *args, **kwargs):
         item = self.get_object()
-        return Response({'item': item, 'stripe_public_key': settings.STRIPE_PUBLIC_KEY}, template_name='item_detail.html')
+        return Response(
+            {'item': item, 'stripe_public_key': settings.STRIPE_PUBLIC_KEY},
+            template_name='item_detail.html'
+            )
 
     @action(detail=True, methods=['get'])
     def buy(self, request, pk=None):
@@ -28,7 +26,6 @@ class ItemViewSet(viewsets.ModelViewSet):
         stripe.api_key = settings.STRIPE_PRIVATE_KEY
         currency = item.currency if item else settings.DEFAULT_CURRENCY
 
-        # Формируем список товаров
         line_items = [{
             "price_data": {
                 "currency": currency,
@@ -40,12 +37,11 @@ class ItemViewSet(viewsets.ModelViewSet):
             },
             "quantity": 1,
         }]
-        # Создаем сессию оплаты в Stripe
+
         session = stripe.checkout.Session.create(
             payment_method_types=["card"],
             line_items=line_items,
             mode="payment",
-            currency=currency,
             success_url=settings.SITE_URL + "/success/",
             cancel_url=settings.SITE_URL + "/cancel/"
         )
@@ -58,7 +54,10 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     def retrieve(self, request, *args, **kwargs):
         order = self.get_object()
-        return Response({'order': order, 'stripe_public_key': settings.STRIPE_PUBLIC_KEY}, template_name='order_detail.html')
+        return Response(
+            {'order': order, 'stripe_public_key': settings.STRIPE_PUBLIC_KEY},
+            template_name='order_detail.html'
+            )
 
     @action(detail=True, methods=['get'])
     def buy(self, request, pk=None):
@@ -66,7 +65,6 @@ class OrderViewSet(viewsets.ModelViewSet):
         currency = order.items.first().currency if order.items.exists() else settings.DEFAULT_CURRENCY
         stripe.api_key = settings.STRIPE_PRIVATE_KEY
 
-        # Формируем список товаров
         line_items = []
         for item in order.items.all():
             line_item = {
@@ -81,18 +79,16 @@ class OrderViewSet(viewsets.ModelViewSet):
                 "quantity": 1,
             }
 
-            # Добавляем налог, если есть
             if order.tax:
                 tax_rate = stripe.TaxRate.create(
                     display_name=order.tax.name,
                     percentage=order.tax.percentage,
-                    inclusive=False  # False = налог добавляется сверху
+                    inclusive=False
                 )
                 line_item["tax_rates"] = [tax_rate.id]
 
             line_items.append(line_item)
 
-        # Добавляем скидку, если есть
         discounts = []
         if order.discount:
             coupon = stripe.Coupon.create(
@@ -101,12 +97,10 @@ class OrderViewSet(viewsets.ModelViewSet):
             )
             discounts.append({"coupon": coupon.id})
 
-        # Создаем сессию оплаты в Stripe
         session = stripe.checkout.Session.create(
             payment_method_types=["card"],
             line_items=line_items,
             mode="payment",
-            currency=currency,
             discounts=discounts,
             success_url=settings.SITE_URL + "/success/",
             cancel_url=settings.SITE_URL + "/cancel/"

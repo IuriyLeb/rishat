@@ -1,5 +1,6 @@
 from django.db import models
 
+
 class Item(models.Model):
     CURRENCY_CHOICES = [
         ('usd', 'USD'),
@@ -7,7 +8,7 @@ class Item(models.Model):
     ]
     name = models.CharField(max_length=255)
     description = models.TextField()
-    price = models.IntegerField()
+    price = models.IntegerField(default=0)
     currency = models.CharField(max_length=3, choices=CURRENCY_CHOICES, default='usd')
 
     def __str__(self):
@@ -38,8 +39,8 @@ class Order(models.Model):
 
     def total_price(self):
         total = sum(item.price for item in self.items.all())
-        if self.discount:
-            total -= total * (self.discount.percentage / 100)
         if self.tax:
             total += total * (self.tax.percentage / 100)
+        if self.discount:
+            total -= total * (self.discount.percentage / 100)
         return int(total)

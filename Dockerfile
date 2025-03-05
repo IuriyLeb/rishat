@@ -9,11 +9,9 @@ ENV LC_ALL=ru_RU.UTF-8 LANG=ru_RU.UTF-8 LANGUAGE=ru_RU:ru
 
 ADD requirements.txt /app/src/
 
-RUN python3 -m pip install -r /app/src/requirements.txt -U --exists-action w
+RUN pip install --no-cache-dir -r /app/src/requirements.txt
 
 ADD . /app/src/
-
-RUN python3 -m pip install -r /app/src/requirements.txt -U --exists-action w
 
 WORKDIR /app/src
 
